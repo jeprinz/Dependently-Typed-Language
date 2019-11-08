@@ -1,27 +1,35 @@
-open import Data.Nat
+-- open import Data.Nat
 open import Data.Bool
 open import Data.Product
 open import Relation.Binary.PropositionalEquality
+-- for universe levels
+open import Agda.Primitive
 
-data ⊤ : Set₁ where
+data ⊤ {i : Level} : Set i where
   tt : ⊤
 
+-- module Context {i : Level} where
+i = lsuc lzero
+j = lsuc (lsuc lzero)
 mutual
-  data Context : Set₁ where
-    EmptyCtx : Context
-    ConsCtx : (ctx : Context) → (ctxType ctx → Set₀) → Context
+  data Context : Set j where
+    ∅ : Context
+    ConsCtx : (ctx : Context) → (ctxType ctx → Set i) → Context
 
   -- outputs a type representing the information contained in the context
-  ctxType : Context → Set₁
-  ctxType EmptyCtx = ⊤
+  ctxType : Context → Set j
+  ctxType ∅ = ⊤
   ctxType (ConsCtx ctx h) = Σ (ctxType ctx) (λ t → h t)
 
-data Exp : (ctx : Context) → (ctxType ctx → Set₀) → Set₁ where
-  InCtx : {ctx : Context} → {t : ctxType ctx → Set₀} → Exp (ConsCtx ctx t) (λ {(rest , _) → t rest})
-  Lambda : {ctx : Context} → {A : ctxType ctx → Set₀} → {B : ctxType (ConsCtx ctx A) → Set} →
+open Context
+data Exp : (ctx : Context) → (ctxType ctx → Set i) → Set j where
+  InCtx : {ctx : Context} → {t : ctxType ctx → Set i} → Exp (ConsCtx ctx t) (λ {(rest , _) → t rest})
+  Lambda : {ctx : Context} → {A : ctxType ctx → Set i} → {B : ctxType (ConsCtx ctx A) → Set i} →
     Exp (ConsCtx ctx A) B → Exp ctx (λ c → ((x : A c) → B (c , x)))
-  -- WeakerCtx : {ctx : Context} → (t : ctxType ctx → Set₀) → (f : ctxType ctx → Set₀) →
-  --   Exp (ConsCtx ctx t) (λ {(rest , _) → f rest}) → Exp ctx f
+  WeakerCtx : {ctx : Context} → (new t : ctxType ctx → Set i) →
+    Exp ctx t → Exp (ConsCtx ctx new) (λ {(rest , _) → t rest})
+  -- WeakerCtx : {ctx : Context} → (t : ctxType ctx → Set i) → (f : ctxType ctx → Set i) →
+    -- Exp (ConsCtx ctx t) (λ {(rest , _) → f rest}) → Exp ctx f
 
 --     -----------------   InCtx
 --     Γ, x : T ⊢ x : T
@@ -30,13 +38,15 @@ data Exp : (ctx : Context) → (ctxType ctx → Set₀) → Set₁ where
 --     -----------------   Lambda
 --      Γ ⊢  e : A → B
 
-eval : {Γ : Context} → (γ : ctxType Γ) → {T : ctxType Γ → Set} → Exp Γ T → T γ
+data ℕ : Set i where
+
+eval : {Γ : Context} → (γ : ctxType Γ) → {T : ctxType Γ → Set i} → Exp Γ T → T γ
 eval γ (InCtx) = proj₂ γ
-eval γ (Lambda e) x = eval (γ , x) e
--- eval γ (WeakerCtx {ctx} t f e) = eval (γ , {!   !}) e
+eval γ (Lambda e) = λ x → eval (γ , x) e
+eval γ (WeakerCtx new t e) = eval (proj₁ γ) e
 
 Γ₁ : Context
-Γ₁ = ConsCtx EmptyCtx (λ _ → ℕ) -- Γ₁ = n : ℕ
+Γ₁ = ConsCtx ∅ (λ _ → ℕ) -- Γ₁ = n : ℕ
 
 e₁ : Exp Γ₁ (λ _ → ℕ)
 e₁ = InCtx -- t = (λ _ → ℕ) -- Γ₁ ⊢ n : ℕ
@@ -44,7 +54,7 @@ e₁ = InCtx -- t = (λ _ → ℕ) -- Γ₁ ⊢ n : ℕ
 -- e₂ : Exp Γ₁ (λ _ → Bool)
 -- e₂ = InCtx
 
-idℕ : Exp EmptyCtx (λ _ → (ℕ → ℕ))
+idℕ : Exp ∅ (λ _ → (ℕ → ℕ))
 idℕ = Lambda e₁
 
 evaled : ℕ → ℕ
