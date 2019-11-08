@@ -15,8 +15,6 @@ mutual
   ctxType : Context → Set₁
   ctxType EmptyCtx = ⊤
   ctxType (ConsCtx ctx h) = Σ (ctxType ctx) (λ t → h t)
-  -- ctxType (ConsCtx EmptyCtx (λ x → ℕ)) = Σ ⊤ (λ x → ℕ)
-  -- ctxType (ConsCtx (ConsCtx EmptyCtx (λ x → ℕ)) (λ _ → ℕ)) =
 
 data Exp : (ctx : Context) → (ctxType ctx → Set₀) → Set₁ where
   InCtx : {ctx : Context} → {t : ctxType ctx → Set₀} → Exp (ConsCtx ctx t) (λ {(rest , _) → t rest})
