@@ -49,9 +49,27 @@ efalse = Lambda (Lambda (Lambda (Un InCtx))) -- λ T a b . b
 etrue : e𝟚
 etrue = Lambda (Lambda (Lambda (Un (WeakerCtx InCtx))))-- λ T a b . a
 
-    -- Lambda : {Γ : Context} → {A : ctxType Γ → Set i} → {B : ctxType (ConsCtx Γ A) → Set i} →
-    --   Value (ConsCtx Γ A) B → Value Γ (λ γ → ((x : A γ) → B (γ , x)))
--- ((γ, A) , B)
+{-
+all permutations can be built out of the following ones (from class!!)
+-}
+mutual
+  data CtxPerm : Context → Context → Set j where
+    permNil : CtxPerm ∅ ∅
+    permSkip : {Γ₁ Γ₂ : Context} → (p : CtxPerm Γ₁ Γ₂) → ∀ T →
+      CtxPerm (ConsCtx Γ₁ T) (ConsCtx Γ₂ (λ γ → T (ctxTypePerm p γ)))
+    permSwap : {Γ : Context} → {A B : ctxType Γ → Set i} →
+      let context = (ConsCtx (ConsCtx Γ A) (λ γ' → B (proj₁ γ'))) in
+      let context' = (ConsCtx (ConsCtx Γ B) (λ γ' → A (proj₁ γ'))) in
+      CtxPerm context context'
+    permTrans : {Γ₁ Γ₂ Γ₃ : Context} → CtxPerm Γ₁ Γ₂ → CtxPerm Γ₂ Γ₃ → CtxPerm Γ₁ Γ₃
+
+  ctxTypePerm : {Γ₁ Γ₂ : Context} → CtxPerm Γ₁ Γ₂ → ctxType Γ₂ → ctxType Γ₁
+  ctxTypePerm permNil γ = tt
+  ctxTypePerm (permSkip p T₁) (γ₁ , t) = (ctxTypePerm p γ₁ , t)
+  ctxTypePerm permSwap ((a , b) , c) = ((a , c) , b)
+  ctxTypePerm (permTrans p p₁) γ = ctxTypePerm p (ctxTypePerm p₁ γ)
+  
+{-
 rearrange : {Γ : Context} → {A B T : ctxType Γ → Set i} →
   let context = (ConsCtx (ConsCtx Γ A) (λ γ' → B (proj₁ γ'))) in
   let context' = (ConsCtx (ConsCtx Γ B) (λ γ' → A (proj₁ γ'))) in
@@ -59,7 +77,15 @@ rearrange : {Γ : Context} → {A B T : ctxType Γ → Set i} →
   Exp context T →
   let T' = λ (γ : ctxType context') → T ((proj₁ (proj₁ γ) , proj₂ γ) , proj₂ (proj₁ γ)) in
   Exp context' T'
-rearrange e = {! e  !}
+rearrange InCtx = WeakerCtx InCtx
+rearrange (Lambda e) = {!   !}
+rearrange {∅} (WeakerCtx e) = {!   !}
+rearrange {ConsCtx Γ x} (WeakerCtx e) = {!   !}
+rearrange (App e e₂) = let a = App (rearrange e) (rearrange e₂) in {!   !}
+rearrange 𝓤 = 𝓤
+rearrange (Π A B) = Π (λ γ → A ((proj₁ (proj₁ γ) , proj₂ γ) , proj₂ (proj₁ γ)))
+  (λ γ → B ((proj₁ (proj₁ γ) , proj₂ γ) , proj₂ (proj₁ γ)))
+  -}
 
 -- substitute : {Γ : Context} → {A : ctxType Γ → Set i} → {B : ctxType (ConsCtx Γ A) → Set i} →
   -- Exp (ConsCtx Γ A) B → (e₂ : Exp Γ A) → Exp Γ (λ γ → B (γ , eval γ e₂))
