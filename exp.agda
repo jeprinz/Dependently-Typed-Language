@@ -2,14 +2,16 @@
 open import Data.Bool
 open import Data.Product
 open import Relation.Binary.PropositionalEquality
+open import Data.Sum
+open import Relation.Nullary
 -- for universe levels
 open import Agda.Primitive
 
 data ⊤ {i : Level} : Set i where
   tt : ⊤
 
--- module Context {i : Level} where
-predi = lsuc lzero
+predpredi = lzero
+predi = lsuc predpredi
 i = lsuc predi
 j = lsuc i
 mutual
@@ -22,24 +24,26 @@ mutual
   ctxType ∅ = ⊤
   ctxType (ConsCtx ctx h) = Σ (ctxType ctx) (λ t → h t)
 
-open Context
 mutual
-  data Exp : (ctx : Context) → (ctxType ctx → Set i) → Set j where
-    InCtx : {ctx : Context} → {t : ctxType ctx → Set i} → Exp (ConsCtx ctx t) (λ {(rest , _) → t rest})
-    Lambda : {ctx : Context} → {A : ctxType ctx → Set i} → {B : ctxType (ConsCtx ctx A) → Set i} →
-      Exp (ConsCtx ctx A) B → Exp ctx (λ c → ((x : A c) → B (c , x)))
-    WeakerCtx : {ctx : Context} → {new t : ctxType ctx → Set i} →
-      Exp ctx t → Exp (ConsCtx ctx new) (λ {(rest , _) → t rest})
-    App : {ctx : Context} → {A : ctxType ctx → Set i} → {B : (c : ctxType ctx) → A c → Set i} →
-      Exp ctx (λ c → (a : A c) → B c a) → (x : Exp ctx A) → Exp ctx (λ c → B c (eval c x))
+  data Exp : (Γ : Context) → (ctxType Γ → Set i) → Set j where
+    InCtx : {Γ : Context} → {t : ctxType Γ → Set i} → Exp (ConsCtx Γ t) (λ {(rest , _) → t rest})
+    Lambda : {Γ : Context} → {A : ctxType Γ → Set i} → {B : ctxType (ConsCtx Γ A) → Set i} →
+      Exp (ConsCtx Γ A) B → Exp Γ (λ γ → ((x : A γ) → B (γ , x)))
+    WeakerCtx : {Γ : Context} → {new t : ctxType Γ → Set i} →
+      Exp Γ t → Exp (ConsCtx Γ new) (λ {(rest , _) → t rest})
+    App : {Γ : Context} → {A : ctxType Γ → Set i} → {B : (γ : ctxType Γ) → A γ → Set i} →
+      Exp Γ (λ γ → (a : A γ) → B γ a) → (x : Exp Γ A) → Exp Γ (λ γ → B γ (eval γ x))
+    𝓤 : {Γ : Context} → Exp Γ (λ γ → Set predi)
+    Π : {Γ : Context} → (A : ctxType Γ → Set predi) → (B : (γ : ctxType Γ) → A γ → Set predi) →
+      Exp Γ (λ γ → Set predi)
 
   eval : {Γ : Context} → (γ : ctxType Γ) → {T : ctxType Γ → Set i} → Exp Γ T → T γ
-  eval γ (InCtx) = proj₂ γ
+  eval γ InCtx = proj₂ γ
   eval γ (Lambda e) = λ x → eval (γ , x) e
   eval γ (WeakerCtx e) = eval (proj₁ γ) e
   eval γ (App e₁ e₂) = (eval γ e₁) (eval γ e₂)
-
--- need application...
+  eval γ 𝓤 = Set predpredi
+  eval γ (Π A B) = (a : A γ) → B γ a
 
 --     -----------------   InCtx
 --     Γ, x : T ⊢ x : T
@@ -53,8 +57,15 @@ mutual
 --      Γ, x : A ⊢ e : B
 
 --      Γ ⊢ f : e : (a : A) → B a  Γ ⊢ x : A
---     -----------------
+--     ---------------------------------------   App
 --      Γ ⊢ f x : B x
+
+-- ind-rec : {Γ : Context} → {T : ctxType Γ → Set i} → (P : Set) →
+  -- (∀ {T'} → Exp Γ T' → P ⊎ ¬ (T ≡ T')) →
+  -- Exp Γ T → P
+-- ind-rec P f e with (f e)
+-- ind-rec P f e    |(inj₁ p) = p
+-- ind-rec P f e    |(inj₂ p) = {!   !}
 
 data ℕ : Set i where
 
